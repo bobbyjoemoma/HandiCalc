@@ -4,6 +4,7 @@ import com.mwgames.geoguard.util.SystemUiHider;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -157,5 +158,10 @@ public class MainActivity extends Activity {
     private void delayedHide(int delayMillis) {
         mHideHandler.removeCallbacks(mHideRunnable);
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
+    }
+    public void startGame(View view)
+    {
+    	this.startActivity(new Intent(this, GeoGuardGameActivity.class));
+    	finish();
     }
 }
