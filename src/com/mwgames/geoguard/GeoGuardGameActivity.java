@@ -124,7 +124,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		this.mEngine.registerUpdateHandler(new FPSLogger());
 
 		this.mScene = new Scene();
-		this.mScene.setBackground(new Background(1, 1, 1));
+		this.mScene.setBackground(new Background(255.0f, 255.0f, 255.0f));
 		this.mScene.setOnSceneTouchListener(this);
 
 		this.mPhysicsWorld = new FixedStepPhysicsWorld(30, new Vector2(0, SensorManager.GRAVITY_EARTH), false, 3, 2);
