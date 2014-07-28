@@ -9,6 +9,7 @@ import org.andengine.entity.scene.IOnSceneTouchListener;
 import org.andengine.entity.scene.Scene;
 import org.andengine.entity.scene.background.Background;
 import org.andengine.entity.sprite.AnimatedSprite;
+import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.util.FPSLogger;
 import org.andengine.extension.physics.box2d.FixedStepPhysicsWorld;
 import org.andengine.extension.physics.box2d.PhysicsConnector;
@@ -55,9 +56,9 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	
 	private BitmapTextureAtlas mBitmapTextureAtlas;
 
-	private TiledTextureRegion mShipFaceTextureRegion;
-	private TiledTextureRegion mBulletFaceTextureRegion;
-	private TiledTextureRegion mTargetFaceTextureRegion;
+	private TextureRegion mShipFaceTextureRegion;
+	private TextureRegion mBulletFaceTextureRegion;
+	private TextureRegion mTargetFaceTextureRegion;
 
 	private Scene mScene;
 
@@ -112,9 +113,9 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
 		
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 64, 64, TextureOptions.BILINEAR);
-		this.mShipFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "SHIP.png", 0, 0, 2, 1); 
-		this.mBulletFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "bullet.png", 0, 0, 2, 1);
-		this.mTargetFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas, this, "PoopRock.png", 0, 0, 2, 1); 
+		this.mShipFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "SHIP.png", 0, 0); 
+		this.mBulletFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "bullet.png", 0, 32);
+		this.mTargetFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "PoopRock.png", 32, 0); 
 		this.mBitmapTextureAtlas.load();
 		
 	}
@@ -188,12 +189,12 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	// ===========================================================
 	
 	private void addFace(float pX, float pY) {
-		final AnimatedSprite face;
+		final Sprite face;
 		final Body body;
 
 		final FixtureDef objectFixtureDef = PhysicsFactory.createFixtureDef(1, 0.5f, 0.5f);
 
-		face = new AnimatedSprite(pX, pY, this.mTargetFaceTextureRegion, this.getVertexBufferObjectManager());
+		face = new Sprite(pX, pY, this.mTargetFaceTextureRegion, this.getVertexBufferObjectManager());
 		body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, face, BodyType.DynamicBody, objectFixtureDef);
 		
 		this.mScene.attachChild(face);
