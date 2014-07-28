@@ -1,5 +1,5 @@
 package com.mwgames.geoguard;
-//TEST CHANGE COMMIT 2
+
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.options.EngineOptions;
 import org.andengine.engine.options.ScreenOrientation;
