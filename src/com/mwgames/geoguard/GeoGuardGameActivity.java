@@ -66,7 +66,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	public static int CAMERA_HEIGHT = 0;
 	public static int CENTER_X = 0;
 	public static int CENTER_Y = 0;
-	public static float CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2));
+	public static float CAMERA_DIAGONAL = 0;
 	
 	public static int mTargets = 0;
 	
@@ -174,6 +174,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		setCameraHeight(windowDimensions.y);
 		CENTER_X = CAMERA_WIDTH / 2;
 		CENTER_Y = CAMERA_HEIGHT / 2;
+		CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2));
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 		
 		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
@@ -219,6 +220,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		mShip = new Ship(CENTER_X, CENTER_Y, this.mShipFaceTextureRegion, this.getVertexBufferObjectManager());
 		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(mShip);
 		Log.d("ShipDB", "creating ship with :::  Xpos: " + Float.toString(CENTER_X) + "  Ypos: " + Float.toString(CENTER_Y));
+		Log.d("ShipDB", "ScreenDiagonal :::  " + Float.toString(CAMERA_DIAGONAL));
 		//create empty object lists
 		targetll = new LinkedList();
 		targetsToBeAdded = new LinkedList();
