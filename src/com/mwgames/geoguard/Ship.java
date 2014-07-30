@@ -74,5 +74,12 @@ public class Ship extends Sprite{
 	public void setAccuracyLevel(int accuracyLevel) {
 		this.accuracyLevel = accuracyLevel;
 	}
+
+	public void decrementHealth() {
+		this.health--;
+	}
+	public void incrementHealth() {
+		this.health++;
+	}
 	
 }

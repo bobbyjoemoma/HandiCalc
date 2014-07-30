@@ -53,6 +53,7 @@ import android.hardware.SensorManager;
 import android.opengl.GLES20;
 import android.util.Log;
 import android.view.Display;
+import android.widget.Toast;
 
 public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAccelerationListener, IOnSceneTouchListener{
 	
@@ -304,8 +305,16 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		            	(_target.getStartX() < CENTER_X & _target.getX() >= CENTER_X) ||
 		            	(_target.getStartY() > CENTER_Y & _target.getY() <= CENTER_Y) ||
 		            	(_target.getStartY() < CENTER_Y & _target.getY() >= CENTER_Y) ){
-			            Log.d("RemoveLogic", "Cond-1 eval = true :::   StartX: " + Float.toString(_target.getStartX()) + "  CurrentX: " + Float.toString(_target.getX()));
-		            	removeTarget(_target, targets);
+			            removeTarget(_target, targets);
+		            	break;
+		            }
+		            if(_target.collidesWith(mShip)){
+		            	mShip.decrementHealth();
+		            	if(!mShip.isAlive()){
+		            		mScene.getChildByIndex(LAYER_ACTIVITY).detachChild(mShip);
+		            		Toast.makeText(getApplicationContext(), "You Fail at This Game", Toast.LENGTH_SHORT);
+		            		endGame();
+		            	}
 		            	break;
 		            }
 		            
@@ -537,5 +546,9 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	        }
 	    });
 	    it.remove();
+	}
+
+	public void endGame(){
+		
 	}
 }
