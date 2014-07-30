@@ -77,9 +77,11 @@ public class Ship extends Sprite{
 
 	public void decrementHealth() {
 		this.health--;
+		if(this.health <= 0) this.isAlive = false;
 	}
 	public void incrementHealth() {
 		this.health++;
+		if(this.health >= 0) this.isAlive = true;
 	}
 	
 }

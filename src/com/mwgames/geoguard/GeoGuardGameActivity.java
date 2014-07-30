@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 
+import org.andengine.engine.Engine.EngineLock;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.handler.timer.ITimerCallback;
@@ -289,6 +290,8 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		 
 		    @Override
 		    public void onUpdate(float pSecondsElapsed) {
+		    	if(mShip != null){
+            	Log.d("ShipDB", "Ship Health: " + Integer.toString(mShip.getHealth()));
 		 
 		        Iterator<Target> targets = targetll.iterator();
 		        Iterator<Bullet> bullets = bulletll.iterator();
@@ -299,20 +302,30 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		        
 		        while (targets.hasNext()) {
 		            _target = targets.next();
-		            
+
 		            //remove if outOfBounds
-		            if( (_target.getStartX() > CENTER_X & _target.getX() <= CENTER_X) ||
-		            	(_target.getStartX() < CENTER_X & _target.getX() >= CENTER_X) ||
-		            	(_target.getStartY() > CENTER_Y & _target.getY() <= CENTER_Y) ||
-		            	(_target.getStartY() < CENTER_Y & _target.getY() >= CENTER_Y) ){
+		            if( (_target.getStartX() > CENTER_X & _target.getX() <= CENTER_X + 1) ||
+		            	(_target.getStartX() < CENTER_X & _target.getX() >= CENTER_X - 1) ||
+		            	(_target.getStartY() > CENTER_Y & _target.getY() <= CENTER_Y + 1) ||
+		            	(_target.getStartY() < CENTER_Y & _target.getY() >= CENTER_Y - 1) ){
 			            removeTarget(_target, targets);
 		            	break;
 		            }
+		            
+		            //check ship collision
 		            if(_target.collidesWith(mShip)){
 		            	mShip.decrementHealth();
+			            removeTarget(_target, targets);
 		            	if(!mShip.isAlive()){
-		            		mScene.getChildByIndex(LAYER_ACTIVITY).detachChild(mShip);
-		            		Toast.makeText(getApplicationContext(), "You Fail at This Game", Toast.LENGTH_SHORT);
+
+		            		final EngineLock engineLock = getEngine().getEngineLock();
+		            		engineLock.lock();
+		            		
+		            		mShip.detachSelf();
+		            		mShip.dispose();
+		            		mShip = null;
+		            		
+		            		engineLock.unlock();
 		            		endGame();
 		            	}
 		            	break;
@@ -326,7 +339,8 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 			            if( _bullet.getX() >= CAMERA_WIDTH   ||
 			            	_bullet.getX() <= 0              ||
 			            	_bullet.getY() >= CAMERA_HEIGHT  ||
-			            	_bullet.getY() <= 0 	         ){
+			            	_bullet.getY() <= 0 	         
+			                ){
 			            	removeBullet(_bullet, bullets);
 			            	continue;
 			            }
@@ -346,6 +360,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 
 		        bulletll.addAll(bulletsToBeAdded);
 		        bulletsToBeAdded.clear();
+		    }
 		    }
 		};
 		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectCollisionsAndBounds);
@@ -388,29 +403,31 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	
 	@Override
 	public boolean onSceneTouchEvent(Scene pScene, TouchEvent pSceneTouchEvent) {
-		if(pSceneTouchEvent.isActionDown()) {
-			fingerX = pSceneTouchEvent.getX();
-			fingerY = pSceneTouchEvent.getY();
-			fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
-			fingerADeg = (float) (fingerA * 180 / Math.PI);
-			mShip.setRotation(fingerADeg);
-			isTouchActive = true;
-			if(canSendBullet){
-				addBullet();
+		if(mShip != null){
+			if(pSceneTouchEvent.isActionDown()) {
+				fingerX = pSceneTouchEvent.getX();
+				fingerY = pSceneTouchEvent.getY();
+				fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
+				fingerADeg = (float) (fingerA * 180 / Math.PI);
+				mShip.setRotation(fingerADeg);
+				isTouchActive = true;
+				if(canSendBullet){
+					addBullet();
+				}
+				return true;
 			}
-			return true;
-		}
-		if(pSceneTouchEvent.isActionMove()) {
-			fingerX = pSceneTouchEvent.getX();
-			fingerY = pSceneTouchEvent.getY();
-			fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
-			fingerADeg = (float) (fingerA * 180 / Math.PI);
-			mShip.setRotation(fingerADeg);
-			return true;
-		}
-		if(pSceneTouchEvent.isActionUp()) {
-			isTouchActive = false;
-			return true;
+			if(pSceneTouchEvent.isActionMove()) {
+				fingerX = pSceneTouchEvent.getX();
+				fingerY = pSceneTouchEvent.getY();
+				fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
+				fingerADeg = (float) (fingerA * 180 / Math.PI);
+				mShip.setRotation(fingerADeg);
+				return true;
+			}
+			if(pSceneTouchEvent.isActionUp()) {
+				isTouchActive = false;
+				return true;
+			}
 		}
 		return false;
 	}
@@ -549,6 +566,11 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	}
 
 	public void endGame(){
-		
+	    this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	           Toast.makeText(getApplicationContext(), "You Fail at This Game", Toast.LENGTH_SHORT).show();
+	        }
+	    });
 	}
 }
