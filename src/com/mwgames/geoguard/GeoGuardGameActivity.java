@@ -136,6 +136,8 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	
 	private float mTargetSpawnDelay;
 	private float mBulletSpawnDelay;
+	private TimerHandler targetTimerHandler;
+	private TimerHandler bulletTimerHandler;
     private boolean canSendBullet;
 	
     private float targetDuration;
@@ -324,14 +326,14 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		            		mShip.detachSelf();
 		            		mShip.dispose();
 		            		mShip = null;
-		            		
+		            		getEngine().unregisterUpdateHandler(bulletTimerHandler);
 		            		engineLock.unlock();
 		            		endGame();
 		            	}
 		            	break;
 		            }
 		            
-		            //cheack active bullets for collision
+		            //check active bullets for collision
 		            while(bullets.hasNext()){
 		            	_bullet = bullets.next();
 		            	
@@ -413,6 +415,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 				isTouchActive = true;
 				if(canSendBullet){
 					addBullet();
+					bulletTimerHandler.reset();
 				}
 				return true;
 			}
@@ -456,7 +459,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	 
 	//Creates a Timer Handler used to Spawn Targets
 	private void createTargetSpawnTimeHandler() {
-	    TimerHandler targetTimerHandler = new TimerHandler(mTargetSpawnDelay, true,
+	    targetTimerHandler = new TimerHandler(mTargetSpawnDelay, true,
 	    new ITimerCallback() {
 	        @Override
 	        public void onTimePassed(TimerHandler pTimerHandler) {
@@ -467,7 +470,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	}
 	//Creates a Timer Handler used to throttle Bullet spawns
 	private void createBulletSpawnTimeHandler() {
-	    TimerHandler bulletTimerHandler = new TimerHandler(mBulletSpawnDelay, true,
+	    bulletTimerHandler = new TimerHandler(mBulletSpawnDelay, true,
 	    new ITimerCallback() {
 
 			@Override
