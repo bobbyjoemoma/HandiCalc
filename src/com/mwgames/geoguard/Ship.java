@@ -19,22 +19,15 @@ public class Ship extends Sprite{
 	// ===========================================================
 	private int health = 0;
 	private boolean isAlive = true;
-	private int level = 1;
-	private int bullet = 1;
+	private int EnvLevel = 1;
+	private int powerLevel = 1;
+	private int speedLevel = 1;
+	private int accuracyLevel = 1;
 	
 	// ===========================================================
 	// Constructors
 	// ===========================================================
-	public Ship(float centerX, float centerY, ITextureRegion textureRegion, VertexBufferObjectManager vertexBufferObjectManager) {
-		super(centerX, centerY, textureRegion, vertexBufferObjectManager);
-        this.health = SHIP_MAX_HEALTH;
-        this.isAlive = this.health > 0 ? true : false;	
-	}
-	public Ship(float centerX, float centerY, ITextureRegion textureRegion, VertexBufferObjectManager vertexBufferObjectManager, int health) {
-		super(centerX, centerY, textureRegion, vertexBufferObjectManager);
-        this.health = health;
-        this.isAlive = this.health > 0 ? true : false;	
-	}
+
 	public Ship(float centerX, float centerY, ITextureRegion textureRegion, VertexBufferObjectManager vertexBufferObjectManager, int health, boolean isAlive) {
 		super(centerX, centerY, textureRegion, vertexBufferObjectManager);
         this.health = health;
@@ -44,6 +37,7 @@ public class Ship extends Sprite{
 	// ===========================================================
 	// Getters & Setters
 	// ===========================================================
+	
 	public int getHealth() {
 		return health;
 	}
@@ -53,19 +47,41 @@ public class Ship extends Sprite{
 	public boolean isAlive() {
 		return isAlive;
 	}
-	public void killShip() {
-		this.isAlive = false;
+	public void setAlive(boolean isAlive) {
+		this.isAlive = isAlive;
 	}
-	public float getLevelModifier() {
-		return (level * 0.1f);
+	public int getEnvLevel() {
+		return EnvLevel;
 	}
-	public void setLevel(int level) {
-		this.level = level;
+	public void setEnvLevel(int envLevel) {
+		EnvLevel = envLevel;
 	}
-	public float getBulletModifier() {
-		return (bullet * 0.1f);
+	public int getPowerLevel() {
+		return powerLevel;
 	}
-	public void setBullet(int bullet) {
-		this.bullet = bullet;
+	public void setPowerLevel(int powerLevel) {
+		this.powerLevel = powerLevel;
 	}
+	public int getSpeedLevel() {
+		return speedLevel;
+	}
+	public void setSpeedLevel(int speedLevel) {
+		this.speedLevel = speedLevel;
+	}
+	public int getAccuracyLevel() {
+		return accuracyLevel;
+	}
+	public void setAccuracyLevel(int accuracyLevel) {
+		this.accuracyLevel = accuracyLevel;
+	}
+
+	public void decrementHealth() {
+		this.health--;
+		if(this.health <= 0) this.isAlive = false;
+	}
+	public void incrementHealth() {
+		this.health++;
+		if(this.health >= 0) this.isAlive = true;
+	}
+	
 }
