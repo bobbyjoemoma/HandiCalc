@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 
+import org.andengine.engine.Engine.EngineLock;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.handler.timer.ITimerCallback;
@@ -53,6 +54,7 @@ import android.hardware.SensorManager;
 import android.opengl.GLES20;
 import android.util.Log;
 import android.view.Display;
+import android.widget.Toast;
 
 public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAccelerationListener, IOnSceneTouchListener{
 	
@@ -69,6 +71,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	public static float CAMERA_DIAGONAL = 0;
 	
 	public static int mTargets = 0;
+	public static int mBullets = 0;
 	
 	public static int initialTargetDuration = 8;
 	
@@ -130,7 +133,20 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	private PhysicsWorld mPhysicsWorld;
 	
 	private Scene mScene;
-
+	
+	private float mTargetSpawnDelay;
+	private float mBulletSpawnDelay;
+    private boolean canSendBullet;
+	
+    private float targetDuration;
+    private float bulletDuration;
+    
+	private boolean isTouchActive;
+	private float fingerX;
+	private float fingerY;
+	private float fingerA;
+	private float fingerADeg;
+	
 	private Text mScoreText;
 	private IFont mFont;
 	
@@ -174,7 +190,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		setCameraHeight(windowDimensions.y);
 		CENTER_X = CAMERA_WIDTH / 2;
 		CENTER_Y = CAMERA_HEIGHT / 2;
-		CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2));
+		CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2)) / 2;
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
 		
 		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
@@ -202,6 +218,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		for(int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
+		
 		this.mScene.setBackground(new Background(255.0f, 255.0f, 255.0f));
 		/* uncomment to create background image sprite
 		this.mscene.setBackgroundEnabled(false);
@@ -217,16 +234,26 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		*/
 		
 		//attach ship to activity layer
-		mShip = new Ship(CENTER_X, CENTER_Y, this.mShipFaceTextureRegion, this.getVertexBufferObjectManager());
+		mShip = new Ship(CENTER_X, CENTER_Y, this.mShipFaceTextureRegion, this.getVertexBufferObjectManager(), 3, true);
 		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(mShip);
 		Log.d("ShipDB", "creating ship with :::  Xpos: " + Float.toString(CENTER_X) + "  Ypos: " + Float.toString(CENTER_Y));
 		Log.d("ShipDB", "ScreenDiagonal :::  " + Float.toString(CAMERA_DIAGONAL));
+		
+		mShip.setRotation(0);
+		
+		mTargetSpawnDelay = 3f;
+		mBulletSpawnDelay = 0.5f;
+		
+		targetDuration = initialTargetDuration - mShip.getEnvLevel();
+		bulletDuration = initialTargetDuration - mShip.getEnvLevel();
+		
 		//create empty object lists
 		targetll = new LinkedList();
 		targetsToBeAdded = new LinkedList();
 		bulletll = new LinkedList();
 		bulletsToBeAdded = new LinkedList();
 		
+		/*
 		//attach physics world to activity layer
 		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false, 3, 2);
 
@@ -247,13 +274,98 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(right);
 		
 		this.mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(this.mPhysicsWorld);
-				
-		createSpriteSpawnTimeHandler();
+		*/
+		
+		createTargetSpawnTimeHandler();
+		createBulletSpawnTimeHandler();
 		
 		bulletPool = new BulletPool(mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
 		targetPool = new TargetPool(mTargetFaceTextureRegion, this.getVertexBufferObjectManager());
 		
-		IUpdateHandler detectTargetOutOfBounds = new IUpdateHandler() {
+		//particle destructors on outOfBounds and collisions
+		IUpdateHandler detectCollisionsAndBounds = new IUpdateHandler() {
+		    @Override
+		    public void reset() {
+		    }
+		 
+		    @Override
+		    public void onUpdate(float pSecondsElapsed) {
+		    	if(mShip != null){
+            	Log.d("ShipDB", "Ship Health: " + Integer.toString(mShip.getHealth()));
+		 
+		        Iterator<Target> targets = targetll.iterator();
+		        Iterator<Bullet> bullets = bulletll.iterator();
+		        Target _target;
+		        Bullet _bullet;
+		        boolean remove = false;
+		        boolean hit = false;
+		        
+		        while (targets.hasNext()) {
+		            _target = targets.next();
+
+		            //remove if outOfBounds
+		            if( (_target.getStartX() > CENTER_X & _target.getX() <= CENTER_X + 1) ||
+		            	(_target.getStartX() < CENTER_X & _target.getX() >= CENTER_X - 1) ||
+		            	(_target.getStartY() > CENTER_Y & _target.getY() <= CENTER_Y + 1) ||
+		            	(_target.getStartY() < CENTER_Y & _target.getY() >= CENTER_Y - 1) ){
+			            removeTarget(_target, targets);
+		            	break;
+		            }
+		            
+		            //check ship collision
+		            if(_target.collidesWith(mShip)){
+		            	mShip.decrementHealth();
+			            removeTarget(_target, targets);
+		            	if(!mShip.isAlive()){
+
+		            		final EngineLock engineLock = getEngine().getEngineLock();
+		            		engineLock.lock();
+		            		
+		            		mShip.detachSelf();
+		            		mShip.dispose();
+		            		mShip = null;
+		            		
+		            		engineLock.unlock();
+		            		endGame();
+		            	}
+		            	break;
+		            }
+		            
+		            //cheack active bullets for collision
+		            while(bullets.hasNext()){
+		            	_bullet = bullets.next();
+		            	
+		            	//remove if outOfBounds
+			            if( _bullet.getX() >= CAMERA_WIDTH   ||
+			            	_bullet.getX() <= 0              ||
+			            	_bullet.getY() >= CAMERA_HEIGHT  ||
+			            	_bullet.getY() <= 0 	         
+			                ){
+			            	removeBullet(_bullet, bullets);
+			            	continue;
+			            }
+			            
+			            if(_target.collidesWith(_bullet)){
+			            	removeBullet(_bullet, bullets);
+			            	hit = true;
+			            }
+		            }
+		            if(hit){
+		            	removeTarget(_target, targets);
+		            	hit = false;
+		            }
+		        }
+		        targetll.addAll(targetsToBeAdded);
+		        targetsToBeAdded.clear();
+
+		        bulletll.addAll(bulletsToBeAdded);
+		        bulletsToBeAdded.clear();
+		    }
+		    }
+		};
+		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectCollisionsAndBounds);
+		/*
+		IUpdateHandler detectBulletOutOfBounds = new IUpdateHandler() {
 		    @Override
 		    public void reset() {
 		    }
@@ -261,31 +373,21 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		    @Override
 		    public void onUpdate(float pSecondsElapsed) {
 		 
-		        Iterator<Target> targets = targetll.iterator();
-		        Target _target;
+		        Iterator<Bullet> bullets = bulletll.iterator();
+		        Bullet _bullet;
 		        boolean remove = false;
 		        
-		        while (targets.hasNext()) {
-		            _target = targets.next();
+		        while (bullets.hasNext()) {
+		            _bullet = bullets.next();
 		            
-		            if(_target.getStartX() > CENTER_X & _target.getX() <= CENTER_X){
-			            Log.d("RemoveLogic", "Cond-1 eval = true :::   StartX: " + Float.toString(_target.getStartX()) + "  CurrentX: " + Float.toString(_target.getX()));
+		            if(_bullet.getX() >= CAMERA_WIDTH || _bullet.getX() <= 0){
 			            remove = true;
 		            }
-		            if(_target.getStartX() < CENTER_X & _target.getX() >= CENTER_X){
-			            Log.d("RemoveLogic", "Cond-2 eval = true :::   StartX: " + Float.toString(_target.getStartX()) + "  CurrentX: " + Float.toString(_target.getX()));
+		            if(_bullet.getY() >= CAMERA_HEIGHT || _bullet.getY() <= 0){
 			            remove = true;
 		            }
-		            if(_target.getStartY() > CENTER_Y & _target.getY() <= CENTER_Y){
-			            Log.d("RemoveLogic", "Cond-3 eval = true :::   StartY: " + Float.toString(_target.getStartY()) + "  CurrentY: " + Float.toString(_target.getY()));
-			            remove = true;
-		            }
-		            if(_target.getStartY() < CENTER_Y & _target.getY() >= CENTER_Y){
-			            Log.d("RemoveLogic", "Cond-4 eval = true :::   StartY: " + Float.toString(_target.getStartY()) + "  CurrentY: " + Float.toString(_target.getY()));
-			            remove = true;
-		            } 
 		            if(remove){
-		            	removeTarget(_target, targets);
+		            	removeBullet(_bullet, bullets);
 		            }
 		            remove = false;
 		        }
@@ -293,26 +395,37 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		        targetsToBeAdded.clear();
 		    }
 		};
-		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectTargetOutOfBounds);
+		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectBulletOutOfBounds);
+		*/
 		
 		return this.mScene;
 	}
 	
 	@Override
 	public boolean onSceneTouchEvent(Scene pScene, TouchEvent pSceneTouchEvent) {
-		if(this.mPhysicsWorld != null) {
+		if(mShip != null){
 			if(pSceneTouchEvent.isActionDown()) {
-				final float touchX = pSceneTouchEvent.getX();
-				final float touchY = pSceneTouchEvent.getY();
-				final float angle = (float) Math.atan2(touchY - CENTER_Y, touchX - CENTER_X);
-				mShip.setRotation(angle);
-				//addBullet(touchX, touchY, angle);
-				/*Bullet bullet = new Bullet(CENTER_X, CENTER_Y, this.mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
-				Body body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, bullet, BodyType.DynamicBody, BULLET_FIXTURE_DEF);
-				this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(bullet);
-				this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(bullet, body, true, true));
-				body.setBullet(true);
-				body.setLinearVelocity((float)Math.cos(pSceneTouchEvent.getX())*5, (float)Math.sin(pSceneTouchEvent.getY()) * 5);*/
+				fingerX = pSceneTouchEvent.getX();
+				fingerY = pSceneTouchEvent.getY();
+				fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
+				fingerADeg = (float) (fingerA * 180 / Math.PI);
+				mShip.setRotation(fingerADeg);
+				isTouchActive = true;
+				if(canSendBullet){
+					addBullet();
+				}
+				return true;
+			}
+			if(pSceneTouchEvent.isActionMove()) {
+				fingerX = pSceneTouchEvent.getX();
+				fingerY = pSceneTouchEvent.getY();
+				fingerA = (float) Math.atan2(fingerY - CENTER_Y, fingerX - CENTER_X);
+				fingerADeg = (float) (fingerA * 180 / Math.PI);
+				mShip.setRotation(fingerADeg);
+				return true;
+			}
+			if(pSceneTouchEvent.isActionUp()) {
+				isTouchActive = false;
 				return true;
 			}
 		}
@@ -321,76 +434,57 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	
 	@Override
 	public void onAccelerationAccuracyChanged(AccelerationData pAccelerationData) {
-	
-	}
-	
+	}	
 	@Override
 	public void onAccelerationChanged(AccelerationData pAccelerationData) {
-		//final Vector2 gravity = Vector2Pool.obtain(pAccelerationData.getX(), pAccelerationData.getY());
-		//this.mPhysicsWorld.setGravity(gravity);
-		//Vector2Pool.recycle(gravity);	
 	}
 	
 	@Override
 	public void onResumeGame() {
 		super.onResumeGame();
-
-		//this.enableAccelerationSensor(this);
 	}
-
 	@Override
 	public void onPauseGame() {
 		super.onPauseGame();
-
-		//this.disableAccelerationSensor();
 	}
 	
 	// ===========================================================
 	// Methods
 	// ===========================================================
-	/*
-	private void addBullet(float pX, float pY, float angle) {
-		final Bullet bullet = new Bullet(CENTER_X, CENTER_Y, this.mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
-		//body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, face, BodyType.DynamicBody, objectFixtureDef);
-		
-		
-		float destX = (pX - CENTER_X) / distanceFromCenter;
-		float destY = (pY - CENTER_Y) / distanceFromCenter;
-		
-		
-		int destX = CENTER_X CAMERA_WIDTH;
-		int destY;
-		bullet.setRotation(angle);
-		MoveModifier mod = new MoveModifier();
-		this.mScene.attachChild(bullet);
-		this.mPhysicsWorld.registerPhysicsConnector(new PhysicsConnector(face, body, true, true));
-	}
-	*/
-	/**
-	 * Creates a Timer Handler used to Spawn Sprites
-	 */
-	private void createSpriteSpawnTimeHandler() {
-	    TimerHandler spriteTimerHandler;
-	    float mEffectSpawnDelay = 1f;
+	
+
 	 
-	    spriteTimerHandler = new TimerHandler(mEffectSpawnDelay, true,
+	//Creates a Timer Handler used to Spawn Targets
+	private void createTargetSpawnTimeHandler() {
+	    TimerHandler targetTimerHandler = new TimerHandler(mTargetSpawnDelay, true,
 	    new ITimerCallback() {
-	 
 	        @Override
 	        public void onTimePassed(TimerHandler pTimerHandler) {
 	            addTarget();
 	        }
 	    });
-	 
-	    getEngine().registerUpdateHandler(spriteTimerHandler);
+	    getEngine().registerUpdateHandler(targetTimerHandler);
+	}
+	//Creates a Timer Handler used to throttle Bullet spawns
+	private void createBulletSpawnTimeHandler() {
+	    TimerHandler bulletTimerHandler = new TimerHandler(mBulletSpawnDelay, true,
+	    new ITimerCallback() {
+
+			@Override
+	        public void onTimePassed(TimerHandler pTimerHandler) {
+				canSendBullet = true;
+	            if(isTouchActive) addBullet();
+	        }
+	    });
+	    getEngine().registerUpdateHandler(bulletTimerHandler);
 	}
 	
 	@SuppressWarnings("unchecked")
 	private void addTarget(){
 		mTargets++;
 		Random rand = new Random();
-		int startX = rand.nextInt((int) (GeoGuardGameActivity.CAMERA_WIDTH - mTargetFaceTextureRegion.getWidth())) + (int) mTargetFaceTextureRegion.getWidth();
-		int startY = rand.nextInt((int) (GeoGuardGameActivity.CAMERA_HEIGHT - mTargetFaceTextureRegion.getHeight())) + (int) mTargetFaceTextureRegion.getHeight();
+		int startX = rand.nextInt((int) (CAMERA_WIDTH - mTargetFaceTextureRegion.getWidth())) + (int) mTargetFaceTextureRegion.getWidth();
+		int startY = rand.nextInt((int) (CAMERA_HEIGHT - mTargetFaceTextureRegion.getHeight())) + (int) mTargetFaceTextureRegion.getHeight();
 
 		Log.d("TargetDB", "ActiveTargets: " + Integer.toString(mTargets));
 		
@@ -410,40 +504,73 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 			default:
 				break;
 		}
-		Log.d("TargetDB", "creating target with :::   StartX: " + Float.toString(startX) + "  StartY: " + Float.toString(startY));
 		Target target = new Target(startX,startY,mTargetFaceTextureRegion.deepCopy(),this.getVertexBufferObjectManager());
 	
 		mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(target);
 
-		float duration = initialTargetDuration - mShip.getLevelModifier();
-		
-		MoveModifier mod = new MoveModifier(duration, target.getX(), CENTER_X, target.getY(), CENTER_Y);
+		MoveModifier mod = new MoveModifier(targetDuration, target.getX(), CENTER_X, target.getY(), CENTER_Y);
 		target.registerEntityModifier(mod.deepCopy());	
 		
 		targetsToBeAdded.add(target);
 	}
 	
+	@SuppressWarnings("unchecked")
+	private void addBullet(){ 
+		mBullets++;
+		Log.d("BulletDB", "ActiveBullets: " + Integer.toString(mBullets));
+		canSendBullet = false;
+		
+		//int startX = rand.nextInt((int) (CENTER_X - mTargetFaceTextureRegion.getWidth())) + (int) mTargetFaceTextureRegion.getWidth();
+		//int startY = rand.nextInt((int) (CAMERA_HEIGHT - mTargetFaceTextureRegion.getHeight()))
+		
+		final Bullet bullet = new Bullet(CENTER_X, CENTER_Y, this.mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
+		//body = PhysicsFactory.createBoxBody(this.mPhysicsWorld, face, BodyType.DynamicBody, objectFixtureDef);
+		
+		float destX = (float) (Math.cos(fingerA) * CAMERA_DIAGONAL + CENTER_X);
+		
+		float destY = (float) (Math.sin(fingerA) * CAMERA_DIAGONAL + CENTER_Y);
+	
+		mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(bullet);
+
+		bullet.setRotation(fingerADeg);
+		MoveModifier mod = new MoveModifier(bulletDuration, CENTER_X, destX, CENTER_Y, destY);
+		bullet.registerEntityModifier(mod.deepCopy());	
+		
+		bulletsToBeAdded.add(bullet);
+	}	
+	
+	@SuppressWarnings("rawtypes")
 	public void removeTarget(final Target target, Iterator it) {
 	    runOnUpdateThread(new Runnable() {
 	 
 	        @Override
 	        public void run() {
 	        	mTargets--;
-	        	Log.d("TargetDB", "removing target with :::   StartX: " + Float.toString(target.getX()) + "  StartY: " + Float.toString(target.getY()));
-	            mScene.getChildByIndex(LAYER_ACTIVITY).detachChild(target);
+	        	mScene.getChildByIndex(LAYER_ACTIVITY).detachChild(target);
 	        }
 	    });
 	    it.remove();
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public void removeBullet(final Bullet bullet, Iterator it) {
 	    runOnUpdateThread(new Runnable() {
 	 
 	        @Override
 	        public void run() {
+	        	mBullets--;
 	            mScene.getChildByIndex(LAYER_ACTIVITY).detachChild(bullet);
 	        }
 	    });
 	    it.remove();
+	}
+
+	public void endGame(){
+	    this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	           Toast.makeText(getApplicationContext(), "You Fail at This Game", Toast.LENGTH_SHORT).show();
+	        }
+	    });
 	}
 }
