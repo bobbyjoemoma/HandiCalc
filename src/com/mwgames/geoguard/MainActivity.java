@@ -1,5 +1,7 @@
 package com.mwgames.geoguard;
 
+import com.google.android.gms.games.Games;
+import com.mwgames.geoguard.google.service.GBaseGameActivity;
 import com.mwgames.geoguard.util.SystemUiHider;
 
 import android.annotation.TargetApi;
@@ -10,6 +12,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Toast;
 
 //MainActivity is Launched following MWGAMES splash loader
 
@@ -19,7 +22,7 @@ import android.view.View;
  *
  * @see SystemUiHider
  */
-public class MainActivity extends Activity {
+public class MainActivity extends GBaseGameActivity {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -36,7 +39,7 @@ public class MainActivity extends Activity {
      * If set, will toggle the system UI visibility upon interaction. Otherwise,
      * will show the system UI visibility upon interaction.
      */
-    private static final boolean TOGGLE_ON_CLICK = true;
+    private static final boolean TOGGLE_ON_CLICK = false;
 
     /**
      * The flags to pass to {@link SystemUiHider#getInstance}.
@@ -164,4 +167,49 @@ public class MainActivity extends Activity {
     	this.startActivity(new Intent(this, GeoGuardGameActivity.class));
     	finish();
     }
+    public void googleSignInButton(View view){
+    	try 
+    	{
+    		//runs on UI thread
+    		runOnUiThread(new Runnable() 
+    		{
+    			@Override
+    			public void run() 
+    			{
+    	            //checks if user is signed in
+    	            //you must call an instance of your game activity here to get
+    	            //to Game Helper
+    				if(isSignedIn())
+    				{
+    					signOut();
+    				}
+    				else
+    				{
+    					beginUserInitiatedSignIn();
+    				}
+    			}
+    		});
+    	} 
+    	catch (Exception e) 
+    	{
+    		e.printStackTrace();
+    	}
+    }
+
+	@Override
+	public void onSignInFailed() {
+		String displayText = "Sign-In Attempt Failed";
+		Toast.makeText(this, displayText,Toast.LENGTH_LONG).show();
+		
+	}
+
+	@Override
+	public void onSignInSucceeded() {
+		GeoGuardGameActivity.mPlayer = Games.Players.getCurrentPlayer(getApiClient());
+		String displayText = "Welcome to GeoGuard " + GeoGuardGameActivity.mPlayer.getDisplayName();
+		Toast.makeText(this, displayText,Toast.LENGTH_LONG).show();
+	   
+	    	this.startActivity(new Intent(this, GeoGuardGameActivity.class));
+	    	finish();
+	}
 }

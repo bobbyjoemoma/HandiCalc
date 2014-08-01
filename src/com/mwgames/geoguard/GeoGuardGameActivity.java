@@ -41,6 +41,7 @@ import org.andengine.opengl.texture.region.ITiledTextureRegion;
 import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
+import org.andengine.ui.activity.BaseGameActivity;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
 import org.andengine.util.debug.Debug;
 
@@ -48,10 +49,12 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
+import com.google.android.gms.games.Player;
 
 import android.graphics.Point;
 import android.hardware.SensorManager;
 import android.opengl.GLES20;
+import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.Display;
 import android.widget.Toast;
@@ -61,6 +64,12 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	// ===========================================================
 	// Constants
 	// ===========================================================
+	
+	/* service constants */
+	public static boolean mSignedIn = false;
+	public static String mUserName = "";
+	
+	public static Player mPlayer;
 	
 	/* camera & positioning */
 	private static Point windowDimensions = new Point();
@@ -158,12 +167,6 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	// Constructors
 	// ===========================================================
 	
-	/* game constructor not needed. engine generates needed constructors through overridden methods
-		public GeoGuardGameActivity() {
-			// TODO Auto-generated constructor stub
-		}
-	*/
-	
 	// ===========================================================
 	// Getters & Setters
 	// ===========================================================
@@ -194,14 +197,12 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		CENTER_Y = CAMERA_HEIGHT / 2;
 		CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2)) / 2;
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
-		
 		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
-
+		
 	}
 
 	@Override
 	protected void onCreateResources() {
-
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
 		
 		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 64, 64, TextureOptions.BILINEAR_PREMULTIPLYALPHA);
@@ -281,8 +282,8 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		createTargetSpawnTimeHandler();
 		createBulletSpawnTimeHandler();
 		
-		bulletPool = new BulletPool(mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
-		targetPool = new TargetPool(mTargetFaceTextureRegion, this.getVertexBufferObjectManager());
+		//bulletPool = new BulletPool(mBulletFaceTextureRegion, this.getVertexBufferObjectManager());
+		//targetPool = new TargetPool(mTargetFaceTextureRegion, this.getVertexBufferObjectManager());
 		
 		//particle destructors on outOfBounds and collisions
 		IUpdateHandler detectCollisionsAndBounds = new IUpdateHandler() {
@@ -399,7 +400,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		};
 		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectBulletOutOfBounds);
 		*/
-		
+		Log.d("SceneDB", "::: Built Scene :::");
 		return this.mScene;
 	}
 	
