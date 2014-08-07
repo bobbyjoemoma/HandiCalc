@@ -1,9 +1,11 @@
-package com.mwgames.geoguard;
+package com.mwgames.geoguard.entities;
 
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.util.adt.pool.GenericPool;
+
+import com.mwgames.geoguard.StartGameActivity;
 
 public class TargetPool extends GenericPool<Target> {
     private ITextureRegion mTextureRegion;
@@ -17,8 +19,8 @@ public class TargetPool extends GenericPool<Target> {
     /** Called when a projectile is required but there isn't one in the pool */
     @Override
     protected Target onAllocatePoolItem() {
-        int startX = generateRandomTargetControlStart(GeoGuardGameActivity.CAMERA_WIDTH);
-		int startY = generateRandomTargetControlStart(GeoGuardGameActivity.CAMERA_HEIGHT);
+        int startX = generateRandomTargetControlStart(StartGameActivity.CAMERA_WIDTH);
+		int startY = generateRandomTargetControlStart(StartGameActivity.CAMERA_HEIGHT);
 		int startV = generateRandomTargetControlVelocity();
 		switch((int)(Math.random() * 100) % 4){
 			case 0:
@@ -28,10 +30,10 @@ public class TargetPool extends GenericPool<Target> {
 				startY = 0;
 				break;
 			case 2:
-				startX = GeoGuardGameActivity.CAMERA_WIDTH;
+				startX = StartGameActivity.CAMERA_WIDTH;
 				break;
 			case 3:
-				startY = GeoGuardGameActivity.CAMERA_HEIGHT;
+				startY = StartGameActivity.CAMERA_HEIGHT;
 				break;
 			default:
 				break;

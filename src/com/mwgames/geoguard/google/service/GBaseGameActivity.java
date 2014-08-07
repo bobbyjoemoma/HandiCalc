@@ -42,7 +42,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
  *
  * @author Bruno Oliveira (Google)
  */
-public abstract class GBaseGameActivity extends FragmentActivity implements
+public abstract class GBaseGameActivity extends BaseGameActivity implements
         GGameHelper.GameHelperListener {
 
     // The game helper object. This class is mainly a wrapper around this object.

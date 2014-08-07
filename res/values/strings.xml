@@ -1,8 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+<!--     Application String Values -->
     <string name="app_name">GeoGuard</string>
-    <string name="dummy_button">Dummy Button</string>
-    <string name="dummy_content">DUMMY\nCONTENT</string>
+    
+<!--     Application Dummies -->
+    <string name="hello_world">Hello world!</string>
+    <string name="splash_dummy">Splash Screen</string>
+    
+<!--	 Splash String Values -->
+	<string name="title_activity_splash">SplashActivity</string>
+   
+	
+<!--     Main String Values -->
+	<string name="sign_out_google">Sign Out of Google+</string>
+	<string name="settings">Settings</string>
+	<string name="options">Options</string>
+	<string name="upgrades">Upgrades</string>
+	<string name="more_cash">More Cash!</string>
+	
+	<string name="signedInText">Welcome Back, </string>
+	<string name="signedOutText">Sign-In to Save Progress!</string>
+	
+<!--     Loading String Values -->
+	<string name="loading_image">Loading Image </string>
+	<string name="loading">Loading </string>
+	<string name="loading.">Loading. </string>
+	<string name="loading..">Loading.. </string>
+	<string name="loading...">Loading... </string>
+	 
+<!--     Settings String Values -->
+	
 
 </resources>

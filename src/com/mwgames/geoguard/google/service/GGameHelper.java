@@ -849,33 +849,39 @@ public class GGameHelper implements GoogleApiClient.ConnectionCallbacks,
      */
     void resolveConnectionResult() {
         // Try to resolve the problem
-        if (mExpectingResolution) {
-            debugLog("We're already expecting the result of a previous resolution.");
-            return;
-        }
+    	this.mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+            	if (mExpectingResolution) {
+                    debugLog("We're already expecting the result of a previous resolution.");
+                    return;
+                }
 
-        debugLog("resolveConnectionResult: trying to resolve result: "
-                + mConnectionResult);
-        if (mConnectionResult.hasResolution()) {
-            // This problem can be fixed. So let's try to fix it.
-            debugLog("Result has resolution. Starting it.");
-            try {
-                // launch appropriate UI flow (which might, for example, be the
-                // sign-in flow)
-                mExpectingResolution = true;
-                mConnectionResult.startResolutionForResult(mActivity,
-                        RC_RESOLVE);
-            } catch (SendIntentException e) {
-                // Try connecting again
-                debugLog("SendIntentException, so connecting again.");
-                connect();
+                debugLog("resolveConnectionResult: trying to resolve result: "
+                        + mConnectionResult);
+                if (mConnectionResult.hasResolution()) {
+                    // This problem can be fixed. So let's try to fix it.
+                    debugLog("Result has resolution. Starting it.");
+                    try {
+                        // launch appropriate UI flow (which might, for example, be the
+                        // sign-in flow)
+                        mExpectingResolution = true;
+                        mConnectionResult.startResolutionForResult(mActivity,
+                                RC_RESOLVE);
+                    } catch (SendIntentException e) {
+                        // Try connecting again
+                        debugLog("SendIntentException, so connecting again.");
+                        connect();
+                    }
+                } else {
+                    // It's not a problem what we can solve, so give up and show an
+                    // error.
+                    debugLog("resolveConnectionResult: result has no resolution. Giving up.");
+                    giveUp(new SignInFailureReason(mConnectionResult.getErrorCode()));
+                }
             }
-        } else {
-            // It's not a problem what we can solve, so give up and show an
-            // error.
-            debugLog("resolveConnectionResult: result has no resolution. Giving up.");
-            giveUp(new SignInFailureReason(mConnectionResult.getErrorCode()));
-        }
+    	});
+        
     }
 
     public void disconnect() {

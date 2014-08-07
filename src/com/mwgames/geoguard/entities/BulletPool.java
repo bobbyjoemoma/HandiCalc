@@ -1,10 +1,12 @@
-package com.mwgames.geoguard;
+package com.mwgames.geoguard.entities;
 
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.opengl.texture.region.ITextureRegion;
 import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
 import org.andengine.util.adt.pool.GenericPool;
+
+import com.mwgames.geoguard.StartGameActivity;
 
 public class BulletPool extends GenericPool<Bullet> {
     private ITextureRegion mTextureRegion;
@@ -18,8 +20,8 @@ public class BulletPool extends GenericPool<Bullet> {
     /** Called when a projectile is required but there isn't one in the pool */
     @Override
     protected Bullet onAllocatePoolItem() {
-        float centerX = GeoGuardGameActivity.CAMERA_WIDTH / 2;
-		float centerY = GeoGuardGameActivity.CAMERA_HEIGHT / 2;
+        float centerX = StartGameActivity.CAMERA_WIDTH / 2;
+		float centerY = StartGameActivity.CAMERA_HEIGHT / 2;
 		return new Bullet(centerX, centerY, mTextureRegion, mVertexBufferObjectManager);
     }
  

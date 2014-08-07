@@ -1,4 +1,4 @@
-package com.mwgames.geoguard;
+package com.mwgames.geoguard.entities;
 
 import org.andengine.entity.Entity;
 import org.andengine.entity.sprite.Sprite;

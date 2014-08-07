@@ -1,10 +1,14 @@
 package com.mwgames.geoguard;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 
+import org.andengine.engine.Engine;
 import org.andengine.engine.Engine.EngineLock;
+import org.andengine.engine.FixedStepEngine;
+import org.andengine.engine.LimitedFPSEngine;
 import org.andengine.engine.camera.Camera;
 import org.andengine.engine.handler.IUpdateHandler;
 import org.andengine.engine.handler.timer.ITimerCallback;
@@ -49,22 +53,51 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.games.Games;
 import com.google.android.gms.games.Player;
+import com.mwgames.geoguard.entities.Bullet;
+import com.mwgames.geoguard.entities.BulletPool;
+import com.mwgames.geoguard.entities.Ship;
+import com.mwgames.geoguard.entities.Target;
+import com.mwgames.geoguard.entities.TargetPool;
+import com.mwgames.geoguard.google.service.GBaseGameActivity;
+import com.mwgames.geoguard.google.service.GGameHelper;
+import com.mwgames.geoguard.util.ResourceManager;
+import com.mwgames.geoguard.util.SceneManager;
 
+import android.content.Intent;
 import android.graphics.Point;
 import android.hardware.SensorManager;
 import android.opengl.GLES20;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.Display;
+import android.view.KeyEvent;
 import android.widget.Toast;
 
-public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAccelerationListener, IOnSceneTouchListener{
+public class StartGameActivity extends GBaseGameActivity implements IOnSceneTouchListener{
+	
+	private Camera mCamera;
 	
 	// ===========================================================
 	// Constants
 	// ===========================================================
-	
+	// The game helper object. This class is mainly a wrapper around this object.
+    
+
+    public static final int CLIENT_GAMES = GGameHelper.CLIENT_GAMES;
+    public static final int CLIENT_APPSTATE = GGameHelper.CLIENT_APPSTATE;
+    public static final int CLIENT_PLUS = GGameHelper.CLIENT_PLUS;
+    public static final int CLIENT_SNAPSHOT = GGameHelper.CLIENT_SNAPSHOT;
+    public static final int CLIENT_ALL = GGameHelper.CLIENT_ALL;
+    
+    // Requested clients for Google API
+    protected int mRequestedClients = CLIENT_GAMES | CLIENT_PLUS | CLIENT_SNAPSHOT;
+
+    private final static String TAG = "MAIN";
+    protected boolean mDebugLog = true;
+    
 	/* service constants */
 	public static boolean mSignedIn = false;
 	public static String mUserName = "";
@@ -119,13 +152,15 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	// ===========================================================
 
 	/* camera */
-	private Camera mCamera;
 	
 	/* textures */
-	private BitmapTextureAtlas mBitmapTextureAtlas;
+	private BitmapTextureAtlas mGameTextureAtlas;
+	private BitmapTextureAtlas mBackgroundTextureAtlas;
 	private ITextureRegion mShipFaceTextureRegion;
 	private ITextureRegion mBulletFaceTextureRegion;
-	private ITextureRegion mTargetFaceTextureRegion;
+	private ITextureRegion mTargetPentagonFaceTextureRegion;
+	private ITextureRegion mTargetTriangleFaceTextureRegion;
+	private ITextureRegion mBackgroundFaceTextureRegion;
 
 	/* ship instance */
 	private Ship mShip;
@@ -174,18 +209,24 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		return CAMERA_WIDTH;
 	}
 	static void setCameraWidth(int cameraWidth) {
-		GeoGuardGameActivity.CAMERA_WIDTH = cameraWidth;
+		StartGameActivity.CAMERA_WIDTH = cameraWidth;
 	}
 	public static int getCameraHeight() {
 		return CAMERA_HEIGHT;
 	}
 	static void setCameraHeight(int cameraHeight) {
-		GeoGuardGameActivity.CAMERA_HEIGHT = cameraHeight;
+		StartGameActivity.CAMERA_HEIGHT = cameraHeight;
 	}
 	// ===========================================================
 	// Methods for/from SuperClass/Interfaces
 	// ===========================================================
 
+	@Override
+	public Engine onCreateEngine(EngineOptions pEngineOptions) 
+	{
+		return new LimitedFPSEngine(pEngineOptions, 60);
+	}
+	
 	@Override
 	public EngineOptions onCreateEngineOptions() {
 		//create window dimensions via window manager
@@ -197,44 +238,91 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		CENTER_Y = CAMERA_HEIGHT / 2;
 		CAMERA_DIAGONAL = (float) Math.sqrt(Math.pow(CAMERA_WIDTH, 2) + Math.pow(CAMERA_HEIGHT, 2)) / 2;
 		this.mCamera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
-		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
-		
+		return new EngineOptions(true, ScreenOrientation.LANDSCAPE_SENSOR, new RatioResolutionPolicy(CAMERA_WIDTH, CAMERA_HEIGHT), this.mCamera);
+		 // Create a fixed step engine updating at 60 steps per second
+	    
 	}
 
 	@Override
-	protected void onCreateResources() {
-		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
-		
-		this.mBitmapTextureAtlas = new BitmapTextureAtlas(this.getTextureManager(), 64, 64, TextureOptions.BILINEAR_PREMULTIPLYALPHA);
-		this.mShipFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "SHIP.png", 0, 0); 
-		this.mBulletFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "bullet.png", 0, 32);
-		this.mTargetFaceTextureRegion = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.mBitmapTextureAtlas, this, "PoopRock.png", 32, 0); 
-		this.mBitmapTextureAtlas.load();
+	public boolean onKeyDown(int keyCode, KeyEvent event) 
+	{  
+	    if (keyCode == KeyEvent.KEYCODE_BACK)
+	    {
+	    	SceneManager.getInstance().getCurrentScene().onBackKeyPressed();
+	    }
+	    return false; 
+	}
+	
+	@Override
+	public void onCreateResources(OnCreateResourcesCallback pOnCreateResourcesCallback) throws IOException {
+/*
+		getEngine().getEngineLock().lock();
+		getEngine().runSafely(new Runnable() {
+	        @Override
+	        public void run() {
+	        	if (mHelper == null) {
+	                getGameHelper();
+	            }
+	            mHelper.setup(StartGameActivity.this);
+	            mHelper.onStart(StartGameActivity.this);
+	        }
+	    });
+		getEngine().getEngineLock().unlock();
+		*/
+		ResourceManager.prepareManager(getEngine(), this, mCamera, getVertexBufferObjectManager(), StartGameActivity.this.mHelper);
+		pOnCreateResourcesCallback.onCreateResourcesFinished();		
+	}
+	
+	@Override
+	public void onCreateScene(OnCreateSceneCallback pOnCreateSceneCallback) throws IOException {
+		SceneManager.getInstance().createLoadingScene(pOnCreateSceneCallback);
 		
 	}
+	
+	@Override
+	public void onPopulateScene(Scene pScene, OnPopulateSceneCallback pOnPopulateSceneCallback) throws IOException
+	{
+		mEngine.registerUpdateHandler(new TimerHandler(2f, new ITimerCallback() 
+		{
+            public void onTimePassed(final TimerHandler pTimerHandler) 
+            {
+                mEngine.unregisterUpdateHandler(pTimerHandler);
+                SceneManager.getInstance().createMenuScene();
+            }
+		}));
+		pOnPopulateSceneCallback.onPopulateSceneFinished();
+	}
 
+	/*
 	@Override
 	protected Scene onCreateScene() {
 		this.mEngine.registerUpdateHandler(new FPSLogger());
+		final String welcomeMessage = "Welcome to GeoGuard ";// + mPlayer.getDisplayName();
+		this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	    		Toast.makeText(getApplicationContext(), welcomeMessage, Toast.LENGTH_LONG).show();
+	        }
+	    });
 		
 		this.mScene = new Scene();
 		for(int i = 0; i < LAYER_COUNT; i++) {
 			this.mScene.attachChild(new Entity());
 		}
 		
-		this.mScene.setBackground(new Background(255.0f, 255.0f, 255.0f));
-		/* uncomment to create background image sprite
-		this.mscene.setBackgroundEnabled(false);
-		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new Sprite(0, 0, this.mBackgroundTextureRegion, this.getVertexBufferObjectManager()));
-		*/
+		//this.mScene.setBackground(new Background(255.0f, 255.0f, 255.0f));
+
+		this.mScene.setBackgroundEnabled(false);
+		this.mScene.getChildByIndex(LAYER_BACKGROUND).attachChild(new Sprite(0, 0, this.mBackgroundFaceTextureRegion, this.getVertexBufferObjectManager()));
+
 		this.mScene.setOnSceneTouchListener(this);
 		
-		/* uncomment to implement text score on overlay layer
-		this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXXXXX".length(), this.getVertexBufferObjectManager());
-		this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
-		this.mScoreText.setAlpha(0.5f);
-		this.mScene.getChildByIndex(LAYER_OVERLAY).attachChild(this.mScoreText);
-		*/
+		//uncomment to implement text score on overlay layer
+		//this.mScoreText = new Text(5, 5, this.mFont, "Score: 0", "Score: XXXXXXX".length(), this.getVertexBufferObjectManager());
+		//this.mScoreText.setBlendFunction(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+		//this.mScoreText.setAlpha(0.5f);
+		//this.mScene.getChildByIndex(LAYER_OVERLAY).attachChild(this.mScoreText);
+		
 		
 		//attach ship to activity layer
 		mShip = new Ship(CENTER_X, CENTER_Y, this.mShipFaceTextureRegion, this.getVertexBufferObjectManager(), 3, true);
@@ -255,29 +343,6 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		targetsToBeAdded = new LinkedList();
 		bulletll = new LinkedList();
 		bulletsToBeAdded = new LinkedList();
-		
-		/*
-		//attach physics world to activity layer
-		this.mPhysicsWorld = new PhysicsWorld(new Vector2(0, SensorManager.GRAVITY_EARTH), false, 3, 2);
-
-		final Rectangle ground = new Rectangle(0, CAMERA_HEIGHT - 2, CAMERA_WIDTH, 2, this.getVertexBufferObjectManager());
-		final Rectangle roof = new Rectangle(0, 0, CAMERA_WIDTH, 2, this.getVertexBufferObjectManager());
-		final Rectangle left = new Rectangle(0, 0, 2, CAMERA_HEIGHT, this.getVertexBufferObjectManager());
-		final Rectangle right = new Rectangle(CAMERA_WIDTH - 2, 0, 2, CAMERA_HEIGHT, this.getVertexBufferObjectManager());
-
-		final FixtureDef wallFixtureDef = PhysicsFactory.createFixtureDef(0, 0.5f, 0.5f);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, ground, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, roof, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, left, BodyType.StaticBody, wallFixtureDef);
-		PhysicsFactory.createBoxBody(this.mPhysicsWorld, right, BodyType.StaticBody, wallFixtureDef);
-
-		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(ground);
-		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(roof);
-		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(left);
-		this.mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(right);
-		
-		this.mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(this.mPhysicsWorld);
-		*/
 		
 		createTargetSpawnTimeHandler();
 		createBulletSpawnTimeHandler();
@@ -367,42 +432,10 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 		    }
 		};
 		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectCollisionsAndBounds);
-		/*
-		IUpdateHandler detectBulletOutOfBounds = new IUpdateHandler() {
-		    @Override
-		    public void reset() {
-		    }
-		 
-		    @Override
-		    public void onUpdate(float pSecondsElapsed) {
-		 
-		        Iterator<Bullet> bullets = bulletll.iterator();
-		        Bullet _bullet;
-		        boolean remove = false;
-		        
-		        while (bullets.hasNext()) {
-		            _bullet = bullets.next();
-		            
-		            if(_bullet.getX() >= CAMERA_WIDTH || _bullet.getX() <= 0){
-			            remove = true;
-		            }
-		            if(_bullet.getY() >= CAMERA_HEIGHT || _bullet.getY() <= 0){
-			            remove = true;
-		            }
-		            if(remove){
-		            	removeBullet(_bullet, bullets);
-		            }
-		            remove = false;
-		        }
-		        targetll.addAll(targetsToBeAdded);
-		        targetsToBeAdded.clear();
-		    }
-		};
-		mScene.getChildByIndex(LAYER_ACTIVITY).registerUpdateHandler(detectBulletOutOfBounds);
-		*/
 		Log.d("SceneDB", "::: Built Scene :::");
 		return this.mScene;
 	}
+*/
 	
 	@Override
 	public boolean onSceneTouchEvent(Scene pScene, TouchEvent pSceneTouchEvent) {
@@ -434,13 +467,6 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 			}
 		}
 		return false;
-	}
-	
-	@Override
-	public void onAccelerationAccuracyChanged(AccelerationData pAccelerationData) {
-	}	
-	@Override
-	public void onAccelerationChanged(AccelerationData pAccelerationData) {
 	}
 	
 	@Override
@@ -487,8 +513,9 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	private void addTarget(){
 		mTargets++;
 		Random rand = new Random();
-		int startX = rand.nextInt((int) (CAMERA_WIDTH - mTargetFaceTextureRegion.getWidth())) + (int) mTargetFaceTextureRegion.getWidth();
-		int startY = rand.nextInt((int) (CAMERA_HEIGHT - mTargetFaceTextureRegion.getHeight())) + (int) mTargetFaceTextureRegion.getHeight();
+		ITextureRegion region = rand.nextBoolean() ? mTargetPentagonFaceTextureRegion : mTargetTriangleFaceTextureRegion;
+		int startX = rand.nextInt((int) (CAMERA_WIDTH - region.getWidth())) + (int) region.getWidth();
+		int startY = rand.nextInt((int) (CAMERA_HEIGHT - region.getHeight())) + (int) region.getHeight();
 
 		Log.d("TargetDB", "ActiveTargets: " + Integer.toString(mTargets));
 		
@@ -508,7 +535,7 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 			default:
 				break;
 		}
-		Target target = new Target(startX,startY,mTargetFaceTextureRegion.deepCopy(),this.getVertexBufferObjectManager());
+		Target target = new Target(startX, startY, region.deepCopy(), this.getVertexBufferObjectManager());
 	
 		mScene.getChildByIndex(LAYER_ACTIVITY).attachChild(target);
 
@@ -577,4 +604,59 @@ public class GeoGuardGameActivity extends SimpleBaseGameActivity implements IAcc
 	        }
 	    });
 	}
+	
+	@Override
+	public void onSignInFailed() {
+		this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	        Log.d("APIclient","CONNECTION FAILED");
+			Toast.makeText(getApplicationContext(), "Connection failed", Toast.LENGTH_SHORT).show();
+	        }
+	    });
+		
+	}
+	
+	@Override
+	public void onSignInSucceeded() {
+		this.runOnUiThread(new Runnable() {
+	        @Override
+	        public void run() {
+	        Log.d("APIclient","CONNECTION FAILED");
+			Toast.makeText(getApplicationContext(), "Connected", Toast.LENGTH_SHORT).show();
+	        }
+	    });
+		/*
+		Log.d("APIclient","CONNECTED");
+		StartGameActivity.mPlayer = Games.Players.getCurrentPlayer(mHelper.getApiClient());
+		final String displayText = "Welcome to GeoGuard " + StartGameActivity.mPlayer.getDisplayName();
+	    Toast.makeText(getApplicationContext(), displayText, Toast.LENGTH_SHORT).show();
+	   /* 
+		setContentView(R.layout.activity_main);
+    	updateMainResourceId();
+    	updateUIsignIn(mHelper.isSignedIn());
+    	
+    	loadFromSnapshot(ResourceManager.snapshotName);
+    	saveSnapshot(ResourceManager.snapshotName);
+    	/*
+        if(!ResourceManager.newPlayer){
+        	//(GoogleApiClient apiClient, String fileName, boolean createIfNotFound)
+        }
+        else{
+        	 AsyncTask<Void, Void, Integer> task = new AsyncTask<Void, Void, Integer>() {
+
+     			@Override
+     	        protected Integer doInBackground(Void... params) {
+     				Snapshots.OpenSnapshotResult result = Games.Snapshots.open(getApiClient(),ResourceManager.snapshotName, true).await();
+     				
+                	return 1;
+     	        }
+
+     	        @Override
+     	        protected void onPostExecute(Integer status){
+     	        }
+     	    };
+     	    
+        }*/
+	}		
 }

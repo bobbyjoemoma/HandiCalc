@@ -1,63 +1,96 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/RelativeLayout1"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0099cc"
+    android:screenOrientation="sensorLandscape"
+    android:windowActionBar="false"
+    android:windowTitleSize="0dp"
     tools:context="com.mwgames.geoguard.MainActivity" >
-
-    <!--
-         The primary full-screen view. This can be replaced with whatever view
-         is needed to present your content, e.g. VideoView, SurfaceView,
-         TextureView, etc.
-    -->
 
     <TextView
         android:id="@+id/fullscreen_content"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="220dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
         android:gravity="center"
         android:keepScreenOn="true"
-        android:text="@string/dummy_content"
+        android:text="GeoGuard Main Page"
         android:textColor="#33b5e5"
         android:textSize="50sp"
         android:textStyle="bold" />
 
-    <!--
-         This FrameLayout insets its children based on system windows using
-         android:fitsSystemWindows.
-    -->
-
-    <FrameLayout
+    <LinearLayout
+        android:id="@+id/fullscreen_content_controls"
+        style="?metaButtonBarStyle"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fitsSystemWindows="true" >
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_below="@+id/fullscreen_content"
+        android:layout_centerHorizontal="true"
+        android:layout_gravity="center"
+        android:layout_weight="1.12"
+        android:background="@color/Black"
+        android:orientation="horizontal"
+        tools:ignore="UselessParent" >
 
         <LinearLayout
-            android:id="@+id/fullscreen_content_controls"
-            style="?metaButtonBarStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:background="@color/black_overlay"
-            android:orientation="horizontal"
-            tools:ignore="UselessParent" >
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="0.5"
+            android:orientation="vertical" >
 
-            <Button
-                android:id="@+id/dummy_button"
-                style="?metaButtonBarButtonStyle"
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/loginText_main"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/dummy_button" />
+                android:layout_gravity="center_horizontal"
+                android:text="Sign-In to save progress!" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="16dp"
+                android:layout_marginRight="16dp"
+                android:gravity="center_horizontal" >
+
+                <com.google.android.gms.common.SignInButton
+                    android:id="@+id/signInButton_main"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left" />
+
+                <Button
+                    android:id="@+id/signOutButton_main"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="right"
+                    android:text="Sign-Out" />
+            </LinearLayout>
         </LinearLayout>
 
         <Button
-            android:id="@+id/button"
+            android:id="@+id/playGameButton_main"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="googleSignInButton"
-            android:text="Button1" />
+            android:layout_gravity="center_vertical"
+            android:layout_marginLeft="25dp"
+            android:layout_marginRight="25dp"
+            android:layout_weight=".25"
+            android:onClick="startGame"
+            android:text="Play Game" />
 
-    </FrameLayout>
+        <Button
+            android:id="@+id/settingsButton_main"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginLeft="10dp"
+            android:layout_marginRight="20dp"
+            android:layout_weight=".25"
+            android:text="Settings" />
+    </LinearLayout>
 
-</FrameLayout>
+</RelativeLayout>

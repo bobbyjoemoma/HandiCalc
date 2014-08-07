@@ -1,173 +1,141 @@
 package com.mwgames.geoguard;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.drive.Drive;
 import com.google.android.gms.games.Games;
+import com.google.android.gms.games.GamesStatusCodes;
+import com.google.android.gms.games.snapshot.Snapshot;
+import com.google.android.gms.games.snapshot.SnapshotMetadataChange;
+import com.google.android.gms.games.snapshot.Snapshots;
+import com.google.android.gms.plus.Plus;
+import com.mwgames.geoguard.R.string;
 import com.mwgames.geoguard.google.service.GBaseGameActivity;
-import com.mwgames.geoguard.util.SystemUiHider;
+import com.mwgames.geoguard.google.service.GGameHelper;
+import com.mwgames.geoguard.util.ResourceManager;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
-//MainActivity is Launched following MWGAMES splash loader
+public class MainActivity extends Activity implements GGameHelper.GameHelperListener{
 
-/**
- * An example full-screen activity that shows and hides the system UI (i.e.
- * status bar and navigation/system bar) with user interaction.
- *
- * @see SystemUiHider
- */
-public class MainActivity extends GBaseGameActivity {
-    /**
-     * Whether or not the system UI should be auto-hidden after
-     * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
-     */
-    private static final boolean AUTO_HIDE = true;
+	// The game helper object. This class is mainly a wrapper around this object.
+    public static GGameHelper mHelper;
 
-    /**
-     * If {@link #AUTO_HIDE} is set, the number of milliseconds to wait after
-     * user interaction before hiding the system UI.
-     */
-    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
+    public static final int CLIENT_GAMES = GGameHelper.CLIENT_GAMES;
+    public static final int CLIENT_APPSTATE = GGameHelper.CLIENT_APPSTATE;
+    public static final int CLIENT_PLUS = GGameHelper.CLIENT_PLUS;
+    public static final int CLIENT_SNAPSHOT = GGameHelper.CLIENT_SNAPSHOT;
+    public static final int CLIENT_ALL = GGameHelper.CLIENT_ALL;
+    
+    // Requested clients for Google API
+    protected int mRequestedClients = CLIENT_GAMES | CLIENT_PLUS | CLIENT_SNAPSHOT;;
 
-    /**
-     * If set, will toggle the system UI visibility upon interaction. Otherwise,
-     * will show the system UI visibility upon interaction.
-     */
-    private static final boolean TOGGLE_ON_CLICK = false;
+    private final static String TAG = "MAIN";
+    protected boolean mDebugLog = true;
+    ResourceManager mResourceManager;
+    
+    public MainActivity() {
+        super();
+    }
 
-    /**
-     * The flags to pass to {@link SystemUiHider#getInstance}.
-     */
-    private static final int HIDER_FLAGS = SystemUiHider.FLAG_HIDE_NAVIGATION;
-
-    /**
-     * The instance of the {@link SystemUiHider} for this activity.
-     */
-    private SystemUiHider mSystemUiHider;
-
+    public MainActivity(int requestedClients) {
+        super();
+        setRequestedClients(requestedClients);
+    }
+    
+    protected void setRequestedClients(int requestedClients) {
+        mRequestedClients = requestedClients;
+    }   
+    public GGameHelper getGameHelper() {
+        if (mHelper == null) {
+            mHelper = new GGameHelper(this, mRequestedClients);
+            mHelper.enableDebugLog(mDebugLog);
+        }
+        return mHelper;
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        setContentView(R.layout.activity_main);
-
-        final View controlsView = findViewById(R.id.fullscreen_content_controls);
-        final View contentView = findViewById(R.id.fullscreen_content);
-
-        // Set up an instance of SystemUiHider to control the system UI for
-        // this activity.
-        mSystemUiHider = SystemUiHider.getInstance(this, contentView, HIDER_FLAGS);
-        mSystemUiHider.setup();
-        mSystemUiHider
-                .setOnVisibilityChangeListener(new SystemUiHider.OnVisibilityChangeListener() {
-                    // Cached values.
-                    int mControlsHeight;
-                    int mShortAnimTime;
-
-                    @Override
-                    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-                    public void onVisibilityChange(boolean visible) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-                            // If the ViewPropertyAnimator API is available
-                            // (Honeycomb MR2 and later), use it to animate the
-                            // in-layout UI controls at the bottom of the
-                            // screen.
-                            if (mControlsHeight == 0) {
-                                mControlsHeight = controlsView.getHeight();
-                            }
-                            if (mShortAnimTime == 0) {
-                                mShortAnimTime = getResources().getInteger(
-                                        android.R.integer.config_shortAnimTime);
-                            }
-                            controlsView.animate()
-                                    .translationY(visible ? 0 : mControlsHeight)
-                                    .setDuration(mShortAnimTime);
-                        } else {
-                            // If the ViewPropertyAnimator APIs aren't
-                            // available, simply show or hide the in-layout UI
-                            // controls.
-                            controlsView.setVisibility(visible ? View.VISIBLE : View.GONE);
-                        }
-
-                        if (visible && AUTO_HIDE) {
-                            // Schedule a hide().
-                            delayedHide(AUTO_HIDE_DELAY_MILLIS);
-                        }
-                    }
-                });
-
-        // Set up the user interaction to manually show or hide the system UI.
-        contentView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (TOGGLE_ON_CLICK) {
-                    mSystemUiHider.toggle();
-                } else {
-                    mSystemUiHider.show();
-                }
-            }
-        });
-
-        // Upon interacting with UI controls, delay any scheduled hide()
-        // operations to prevent the jarring behavior of controls going away
-        // while interacting with the UI.
-        findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
+    	super.onCreate(savedInstanceState);
+    	mResourceManager = new ResourceManager();
+    	setContentView(R.layout.dialog_loading);
+    	
+        if (mHelper == null) {
+            getGameHelper();
+        }
+        mHelper.setup(this);
     }
-
     @Override
-    protected void onPostCreate(Bundle savedInstanceState) {
-        super.onPostCreate(savedInstanceState);
-
-        // Trigger the initial hide() shortly after the activity has been
-        // created, to briefly hint to the user that UI controls
-        // are available.
-        delayedHide(100);
+    protected void onStart() {
+        super.onStart();
+        mHelper.onStart(this);
+    }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mHelper.onStop();
+    }
+    @Override
+    protected void onActivityResult(int request, int response, Intent data) {
+        super.onActivityResult(request, response, data);
+        mHelper.onActivityResult(request, response, data);
     }
 
-
-    /**
-     * Touch listener to use for in-layout UI controls to delay hiding the
-     * system UI. This is to prevent the jarring behavior of controls going away
-     * while interacting with activity UI.
-     */
-    View.OnTouchListener mDelayHideTouchListener = new View.OnTouchListener() {
-        @Override
-        public boolean onTouch(View view, MotionEvent motionEvent) {
-            if (AUTO_HIDE) {
-                delayedHide(AUTO_HIDE_DELAY_MILLIS);
-            }
-            return false;
+    protected GoogleApiClient getApiClient() {
+        return mHelper.getApiClient();
+    }
+    protected boolean isSignedIn() {
+        return mHelper.isSignedIn();
+    }
+    protected void beginUserInitiatedSignIn() {
+        mHelper.beginUserInitiatedSignIn();
+    }
+    protected void signOut() {
+        mHelper.signOut();
+    }
+    protected void showAlert(String message) {
+        mHelper.makeSimpleDialog(message).show();
+    }
+    protected void showAlert(String title, String message) {
+        mHelper.makeSimpleDialog(title, message).show();
+    }
+    protected void enableDebugLog(boolean enabled) {
+        mDebugLog = true;
+        if (mHelper != null) {
+            mHelper.enableDebugLog(enabled);
         }
-    };
-
-    Handler mHideHandler = new Handler();
-    Runnable mHideRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mSystemUiHider.hide();
-        }
-    };
-
-    /**
-     * Schedules a call to hide() in [delay] milliseconds, canceling any
-     * previously scheduled calls.
-     */
-    private void delayedHide(int delayMillis) {
-        mHideHandler.removeCallbacks(mHideRunnable);
-        mHideHandler.postDelayed(mHideRunnable, delayMillis);
     }
-    public void startGame(View view)
-    {
-    	this.startActivity(new Intent(this, GeoGuardGameActivity.class));
-    	finish();
+    protected String getInvitationId() {
+        return mHelper.getInvitationId();
     }
+    protected void reconnectClient() {
+        mHelper.reconnectClient();
+    }
+    protected boolean hasSignInError() {
+        return mHelper.hasSignInError();
+    }
+    protected GGameHelper.SignInFailureReason getSignInError() {
+        return mHelper.getSignInError();
+    }
+    
     public void googleSignInButton(View view){
+    	/*
     	try 
     	{
     		//runs on UI thread
@@ -181,11 +149,11 @@ public class MainActivity extends GBaseGameActivity {
     	            //to Game Helper
     				if(isSignedIn())
     				{
-    					signOut();
+    					//signOut();
     				}
     				else
     				{
-    					beginUserInitiatedSignIn();
+    					//SplashActivity.beginUserInitiatedSignIn();
     				}
     			}
     		});
@@ -194,22 +162,190 @@ public class MainActivity extends GBaseGameActivity {
     	{
     		e.printStackTrace();
     	}
+    	*/
     }
 
+    /** Overriden GoogleAPIClient Helper methods */
 	@Override
 	public void onSignInFailed() {
-		String displayText = "Sign-In Attempt Failed";
-		Toast.makeText(this, displayText,Toast.LENGTH_LONG).show();
-		
+		Log.d("APIclient","CONNECTION FAILED");
+		Toast.makeText(getApplicationContext(), "Connection failed", Toast.LENGTH_SHORT).show();
 	}
-
+	
 	@Override
 	public void onSignInSucceeded() {
-		GeoGuardGameActivity.mPlayer = Games.Players.getCurrentPlayer(getApiClient());
-		String displayText = "Welcome to GeoGuard " + GeoGuardGameActivity.mPlayer.getDisplayName();
-		Toast.makeText(this, displayText,Toast.LENGTH_LONG).show();
-	   
-	    	this.startActivity(new Intent(this, GeoGuardGameActivity.class));
-	    	finish();
+		Log.d("APIclient","CONNECTED");
+		StartGameActivity.mPlayer = Games.Players.getCurrentPlayer(mHelper.getApiClient());
+		final String displayText = "Welcome to GeoGuard " + StartGameActivity.mPlayer.getDisplayName();
+	    Toast.makeText(getApplicationContext(), displayText, Toast.LENGTH_SHORT).show();
+	    
+		setContentView(R.layout.activity_main);
+    	updateMainResourceId();
+    	updateUIsignIn(mHelper.isSignedIn());
+    	
+    	loadFromSnapshot(ResourceManager.snapshotName);
+    	saveSnapshot(ResourceManager.snapshotName);
+    	/*
+        if(!ResourceManager.newPlayer){
+        	//(GoogleApiClient apiClient, String fileName, boolean createIfNotFound)
+        }
+        else{
+        	 AsyncTask<Void, Void, Integer> task = new AsyncTask<Void, Void, Integer>() {
+
+     			@Override
+     	        protected Integer doInBackground(Void... params) {
+     				Snapshots.OpenSnapshotResult result = Games.Snapshots.open(getApiClient(),ResourceManager.snapshotName, true).await();
+     				
+                	return 1;
+     	        }
+
+     	        @Override
+     	        protected void onPostExecute(Integer status){
+     	        }
+     	    };
+     	    
+        }*/
+	}	
+	
+	void loadFromSnapshot(final String name) {
+		final Dialog dialog = new Dialog(this);
+		dialog.setContentView(R.layout.dialog_loading);
+		dialog.show();
+
+	    AsyncTask<Void, Void, Integer> task = new AsyncTask<Void, Void, Integer>() {
+
+			@Override
+	        protected Integer doInBackground(Void... params) {
+	            // Open the saved game using its name.
+	            Snapshots.OpenSnapshotResult result = Games.Snapshots.open(getApiClient(),name, true).await();
+	            int status = result.getStatus().getStatusCode();
+	            ResourceManager.mSnapshot = processSnapshotOpenResult(result,0);
+	            if (ResourceManager.mSnapshot != null){
+	                ResourceManager.snapshotBytesIn = ResourceManager.mSnapshot.readFully();
+	                ResourceManager.snapshotREADflag = true;
+	                updateUIloaded(true);
+	                Log.e(TAG, "Error while loading: " + status);
+	            }else{
+	                Log.e(TAG, "Error while loading: " + status);
+	                updateUIloaded(false);
+	                ResourceManager.snapshotREADflag = true;
+	            }
+
+	            return status;
+	        }
+
+	        @Override
+	        protected void onPostExecute(Integer status){
+	            dialog.dismiss();
+	        }
+
+			
+	    };
+
+	    task.execute();
+	}
+	Snapshot processSnapshotOpenResult(Snapshots.OpenSnapshotResult result,
+	        int retryCount){
+	    Snapshot mResolvedSnapshot = null;
+	    retryCount++;
+	    int status = result.getStatus().getStatusCode();
+
+	    Log.i(TAG, "Save Result status: " + status);
+
+	    if (status == GamesStatusCodes.STATUS_OK) {
+	        return result.getSnapshot();
+	    } else if (status == GamesStatusCodes.STATUS_SNAPSHOT_CONTENTS_UNAVAILABLE) {
+	        return result.getSnapshot();
+	    } else if (status == GamesStatusCodes.STATUS_SNAPSHOT_CONFLICT){
+	        Snapshot snapshot = result.getSnapshot();
+	        Snapshot conflictSnapshot = result.getConflictingSnapshot();
+
+	        // Resolve between conflicts by selecting the newest of the conflicting snapshots.
+	        mResolvedSnapshot = snapshot;
+
+	        if (snapshot.getMetadata().getLastModifiedTimestamp() <
+	                conflictSnapshot.getMetadata().getLastModifiedTimestamp()){
+	            mResolvedSnapshot = conflictSnapshot;
+	        }
+
+	        Snapshots.OpenSnapshotResult resolveResult = Games.Snapshots.resolveConflict(
+	                getApiClient(), result.getConflictId(), mResolvedSnapshot)
+	                .await();
+
+	        if (retryCount < ResourceManager.MAX_SNAPSHOT_RESOLVE_RETRIES){
+	            return processSnapshotOpenResult(resolveResult, retryCount);
+	        }else{
+	            String message = "Could not resolve snapshot conflicts";
+	            Log.e(TAG, message);
+	            Toast.makeText(getBaseContext(), message, Toast.LENGTH_LONG).show();
+	        }
+
+	    }
+	    // Fail, return null.
+	    return null;
+	}
+	void saveSnapshot(final String name) {
+	    AsyncTask<Void, Void, Snapshots.OpenSnapshotResult> task =
+	            new AsyncTask<Void, Void, Snapshots.OpenSnapshotResult>() {
+	                @Override
+	                protected Snapshots.OpenSnapshotResult doInBackground(Void... params) {
+	                    Snapshots.OpenSnapshotResult result = Games.Snapshots.open(getApiClient(), name, true).await();
+	                    return result;
+	                }
+
+	                @Override
+	                protected void onPostExecute(Snapshots.OpenSnapshotResult result) {
+	                    Snapshot toWrite = processSnapshotOpenResult(result, 0);
+
+	                    Log.i(TAG, writeSnapshot(toWrite));
+	                }
+	            };
+
+	    task.execute();
+	}
+	public static String writeSnapshot(Snapshot snapshot){
+    	snapshot.writeBytes(ResourceManager.gameState.getBytes());
+    	String description = "Player Rank: " + ResourceManager.playerRank + " Coins: " + ResourceManager.currency;
+	    // Save the snapshot.
+	    SnapshotMetadataChange metadataChange
+	            = new SnapshotMetadataChange.Builder()
+	            .setDescription(description)
+	            .build();
+	    Games.Snapshots.commitAndClose(mHelper.getApiClient(), snapshot, metadataChange);
+	    return snapshot.toString();
+	}
+	public void updateMainResourceId() {
+		ResourceManager.mSignInButtonMain = (SignInButton) findViewById(R.id.signInButton_main);
+		ResourceManager.mSignOutButtonMain = (Button) findViewById(R.id.signOutButton_main);
+		ResourceManager.mSettingsButtonMain = (Button) findViewById(R.id.settingsButton_main);
+		ResourceManager.mPlayGameButtonMain = (Button) findViewById(R.id.playGameButton_main);
+	    //mResourceManager.mUpgradesButtonMain = (Button) findViewById(R.id.upgradesButton_main);
+		ResourceManager.mLoginTextMain = (TextView) findViewById(R.id.loginText_main);
+		
+	}
+	public void updateUIsignIn(boolean signedIn) {
+		if(signedIn){
+			ResourceManager.mSignInButtonMain.setVisibility(0);
+			ResourceManager.mSignOutButtonMain.setVisibility(1);
+			ResourceManager.mLoginTextMain.setText(R.string.signedInText);
+		} else {
+			ResourceManager.mSignInButtonMain.setVisibility(1);
+			ResourceManager.mSignOutButtonMain.setVisibility(0);
+			ResourceManager.mLoginTextMain.setText(R.string.signedOutText);			
+		}
+		
+	}
+	public void updateUIloaded(boolean loaded) {
+		/*
+		if(loaded){
+			ResourceManager.mSignInButtonMain.setVisibility(0);
+			ResourceManager.mSignOutButtonMain.setVisibility(1);
+			ResourceManager.mLoginTextMain.setText(R.string.signedInText);
+		} else {
+			ResourceManager.mSignInButtonMain.setVisibility(1);
+			ResourceManager.mSignOutButtonMain.setVisibility(0);
+			ResourceManager.mLoginTextMain.setText(R.string.signedOutText);			
+		}
+		*/
 	}
 }
